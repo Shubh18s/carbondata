@@ -2490,6 +2490,47 @@ class TestNonTransactionalCarbonTable extends QueryTest with BeforeAndAfterAll {
     FileUtils.deleteDirectory(new File(writerPath))
   }
 
+  test("check varchar with trailing space") {
+    FileUtils.deleteDirectory(new File(writerPath))
+    val fields: Array[Field] = new Array[Field](8)
+
+    fields(0) = new Field("Event_ID", DataTypes.STRING)
+    fields(1) = new Field("Event_Time", DataTypes.TIMESTAMP)
+    fields(2) = new Field("subject", DataTypes.VARCHAR)
+    fields(3) = new Field("From_Email", DataTypes.STRING)
+    fields(4) = new Field("To_Email", DataTypes.createArrayType(DataTypes.STRING))
+    fields(5) = new Field("CC_Email", DataTypes.createArrayType(DataTypes.STRING))
+    fields(6) = new Field("BCC_Email", DataTypes.createArrayType(DataTypes.STRING))
+    fields(7) = new Field("messagebody ", DataTypes.VARCHAR)
+
+    var options = Map("bAd_RECords_action" -> "FORCE").asJava
+    CarbonProperties.getInstance()
+      .addProperty(CarbonCommonConstants.CARBON_TIMESTAMP_FORMAT, "EEE, d MMM yyyy HH:mm:ss Z")
+
+    val writer: CarbonWriter = CarbonWriter.builder
+      .outputPath(writerPath)
+      .withCsvInput(new Schema(fields)).writtenBy("TestNonTransactionalCarbonTable").build()
+
+    writer
+      .write(Array("aaa",
+        "Fri, 4 May 2001 13:51:00 -0700 (PDT)",
+        "Re",
+        "cdn@ws.com",
+        "sd#er",
+        "sd",
+        "sds",
+        "ew"))
+    writer.close()
+
+    sql("drop table if exists test")
+    sql(
+      s"""CREATE TABLE test using carbon options('long_string_columns'='subject,messagebody')
+         |LOCATION '$writerPath'"""
+        .stripMargin)
+    sql("select * from test").show()
+    FileUtils.deleteDirectory(new File(writerPath))
+  }
+
   def generateCarbonData(builder :CarbonWriterBuilder): Unit ={
     val fields = new Array[Field](3)
     fields(0) = new Field("name", DataTypes.STRING)
